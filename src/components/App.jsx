@@ -5,7 +5,8 @@ import {
 
 import { GlobalStyle } from './Globalstyle';
 import { Layout } from './Layout';
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
+
 import Searchbar from './Searchbar/Searchbar';
 import ImageGallery from './ImageGallery/ImageGallery';
 
@@ -14,102 +15,76 @@ import Modal from './Modal/Modal';
 import Loader from './Loader/Loader';
 import { fetchContents } from 'services/fetchImages';
 
-const INITIALE_STATE = {
-  nameQuery: '',
-  page: 1,
-  dataImages: [],
-  isLoading: false,
-  showModal: false,
-  error: null,
-};
+export const App = () => {
+  const [nameQuery, setNameQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [dataImages, setDataImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [imageModal, setImageModal] = useState('');
+  const [error, setError] = useState(null);
 
-export class App extends Component {
-  state = { ...INITIALE_STATE };
+  useEffect(() => {
+    if (nameQuery === '') return;
 
-  imageModal = '';
+    async function fechImages() {
+      try {
+        setIsLoading(true);
+        const {
+          data: { hits },
+        } = await fetchContents(nameQuery, page);
 
-  async componentDidUpdate(_, prevState) {
-    if (
-      prevState.nameQuery === this.state.nameQuery &&
-      prevState.page === this.state.page
-    )
-      return;
-
-    if (prevState.nameQuery !== this.state.nameQuery)
-      prevState.dataImages.length = 0;
-
-    try {
-      this.setState({ isLoading: true });
-
-      const {
-        data: { hits },
-      } = await fetchContents(this.state);
-
-      this.setState({
-        dataImages: [
-          ...prevState.dataImages,
+        setDataImages(prevState => [
+          ...prevState,
           ...hits.map(hit => {
             const { id, largeImageURL, webformatURL } = hit;
             return { id, largeImageURL, webformatURL };
           }),
-        ],
-        isLoadMore: true,
-      });
-    } catch (error) {
-      this.setState({ error });
-      console.error(error);
-    } finally {
-      this.setState({ isLoading: false });
+        ]);
+      } catch (error) {
+        setError(error);
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }
+    fechImages();
+  }, [nameQuery, page]);
 
-  handleNameQuery = searchName =>
-    this.setState({
-      nameQuery: searchName,
-    });
-
-  handleLoadMore = () =>
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
-
-  toggleModal = () => {
-    this.setState(({ showModal }) => ({
-      showModal: !showModal,
-    }));
+  const handleNameQuery = searchName => {
+    setDataImages([]); // очищаем массив с картинками при изменении поиска
+    setNameQuery(searchName);
   };
 
-  handleShowImage = imageUrl => {
-    this.imageModal = imageUrl;
+  const handleLoadMore = () => setPage(prevPage => prevPage + 1);
+
+  const toggleModal = () => setShowModal(prevState => !prevState);
+
+  const handleShowImage = imageUrl => {
+    setImageModal(imageUrl);
   };
 
-  createNotification = message => {
+  const createNotification = message => {
     return () => {
       NotificationManager.error(message);
     };
   };
 
-  render() {
-    const { isLoading, dataImages, nameQuery, showModal, error } = this.state;
-
-    return (
-      <Layout>
-        <GlobalStyle />
-        <Searchbar onSubmit={this.handleNameQuery} />
-        {error && this.createNotification(error.message)}
-        <ImageGallery
-          images={dataImages}
-          name={nameQuery}
-          onClick={this.handleShowImage}
-          onOpen={this.toggleModal}
-        />
-        {isLoading && <Loader />}
-        {dataImages.length && <Button onClick={this.handleLoadMore} />}
-        {showModal && (
-          <Modal img={this.imageModal} onClose={this.toggleModal} />
-        )}
-        <NotificationContainer />
-      </Layout>
-    );
-  }
-}
+  return (
+    <Layout>
+      <GlobalStyle />
+      <Searchbar onSubmit={handleNameQuery} />
+      {error && createNotification(error.message)}
+      <ImageGallery
+        images={dataImages}
+        name={nameQuery}
+        onClick={handleShowImage}
+        onOpen={toggleModal}
+      />
+      {isLoading && <Loader />}
+      {dataImages.length && <Button onClick={handleLoadMore} />}
+      {showModal && <Modal img={imageModal} onClose={toggleModal} />}
+      <NotificationContainer />
+    </Layout>
+  );
+};

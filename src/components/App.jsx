@@ -52,8 +52,10 @@ export const App = () => {
   }, [nameQuery, page]);
 
   const handleNameQuery = searchName => {
+    if (nameQuery === searchName) return;
     setDataImages([]); // очищаем массив с картинками при изменении поиска
     setNameQuery(searchName);
+    setPage(1);
   };
 
   const handleLoadMore = () => setPage(prevPage => prevPage + 1);
@@ -82,7 +84,7 @@ export const App = () => {
         onOpen={toggleModal}
       />
       {isLoading && <Loader />}
-      {dataImages.length && <Button onClick={handleLoadMore} />}
+      {dataImages.length !== 0 && <Button onClick={handleLoadMore} />}
       {showModal && <Modal img={imageModal} onClose={toggleModal} />}
       <NotificationContainer />
     </Layout>
